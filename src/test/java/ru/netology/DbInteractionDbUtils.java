@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.sql.*;
 
-public class DbInteraction {
+public class DbInteractionDbUtils {
     @BeforeEach
     @SneakyThrows
     void setUp() {
@@ -21,7 +21,7 @@ public class DbInteraction {
                 Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/app-db", "user", "pass");
                 // PreparedStatement - подготовленное состояние, загружаем в метод наш шаблон ничего не подставляя, т.е. подготовили его
                 PreparedStatement preparedStatement = conn.prepareStatement(dataSQL);
-                ) {
+        ) {
             // устанавливаем вместо первого ? какое-то значение
             preparedStatement.setString(1, faker.name().username());
             // устанавливаем вместо второго ? какое-то значение
@@ -50,7 +50,7 @@ public class DbInteraction {
                 Statement statement = conn.createStatement();
                 // в PreparedStatement загружаем шаблон запроса по знаком ?
                 PreparedStatement preparedStatement = conn.prepareStatement(cardsSQL);
-                ) {
+        ) {
             // ResultSet - специальная сущность для работы с БД, для обработки результатов запросов SELECT
             // передаем обычный не параметризированные запрос
             try (ResultSet rs = statement.executeQuery(countSQL)) {
