@@ -2,83 +2,63 @@ package ru.netology;
 
 import com.github.javafaker.Faker;
 import lombok.SneakyThrows;
+import org.apache.commons.dbutils.QueryRunner;
+import org.apache.commons.dbutils.handlers.BeanHandler;
+import org.apache.commons.dbutils.handlers.BeanListHandler;
+import org.apache.commons.dbutils.handlers.ScalarHandler;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.sql.*;
+import java.util.List;
 
 public class DbInteractionDbUtils {
     @BeforeEach
     @SneakyThrows
     void setUp() {
         var faker = new Faker();
-        // запрос пишется в строковой переменной, ? - шаблон запроса, можно подставлять значения
-        String dataSQL = "INSERT INTO users(login, password) VALUES (?, ?);";
+        QueryRunner runner = new QueryRunner();
+        var dataSQL = "INSERT INTO users(login, password) VALUES (?, ?);";
 
-        // подставляем значения в шаблон запроса вместо ? и обновляем
         try (
-                // в метод getConnection передаем 3 параметра: строка из проперти,
+                // создаем подключение
                 Connection conn = DriverManager.getConnection("jdbc:mysql://localhost:3306/app-db", "user", "pass");
-                // PreparedStatement - подготовленное состояние, загружаем в метод наш шаблон ничего не подставляя, т.е. подготовили его
-                PreparedStatement preparedStatement = conn.prepareStatement(dataSQL);
         ) {
-            // устанавливаем вместо первого ? какое-то значение
-            preparedStatement.setString(1, faker.name().username());
-            // устанавливаем вместо второго ? какое-то значение
-            preparedStatement.setString(2, "password");
-            preparedStatement.executeUpdate();      // выполяняем Update
-
-            preparedStatement.setString(1, faker.name().username());
-            preparedStatement.setString(2, "password");
-            preparedStatement.executeUpdate();
+            // обычная вставка
+            // выполяем запросы через QueryRunner, update - выполяем запрос INSERT,
+            // передаем Connection, шаблон запроса и то количество параметров сколько ? знаков в шаблоне; 2 раза выполяем INSERT
+            // update - выполняет запросы на изменение, т.е. INSERT, UPDATE
+            runner.update(conn, dataSQL, faker.name().username(), "pass1");
+            runner.update(conn, dataSQL, faker.name().username(), "pass2");
         }
     }
 
     @Test
     @SneakyThrows
     void stubTest() {
-        // верни количество записей в таблице users
-        String countSQL = "SELECT COUNT(*) FROM users;";
-        String cardsSQL = "SELECT id, number, balance_in_kopecks FROM cards WHERE user_id = ?;";
+        var countSQL = "SELECT COUNT(*) FROM users;";
+        var usersSQL = "SELECT * FROM users;";
+        var runner = new QueryRunner();
 
         try (
-                // создания Connection, т.е. подключение к БД
+                // создаем Connection
                 Connection conn = DriverManager.getConnection(
-                        "jdbc:mysql://localhost:3306/app-db", "user", "pass"
-                );
-                // подготовка состояни: Statement - выполнение не параметризованного запроса
-                Statement statement = conn.createStatement();
-                // в PreparedStatement загружаем шаблон запроса по знаком ?
-                PreparedStatement preparedStatement = conn.prepareStatement(cardsSQL);
+                        "jdbc:mysql://localhost:3306/app-db", "user", "pass");
         ) {
-            // ResultSet - специальная сущность для работы с БД, для обработки результатов запросов SELECT
-            // передаем обычный не параметризированные запрос
-            try (ResultSet rs = statement.executeQuery(countSQL)) {
-                // понятие курсор - при обработке строк запросов в Java есть собстенный курсор, который она двигает
-                // метод next - типа цикла for, проверяет есть ли строка, перед которой стоит курсор?
-                // если существует, то возвращает true и переносит курсор на эту строку для обработки значений и т.д. пока не закончятся строки
-                if (rs.next()) {        // проверка, сущестует ли строчка? удачно ли выполнился запрос
-                    // выборка значения по индексу столбца (нумерация с 1)
-                    var count = rs.getInt(1);       // получить значение из поля 1
-                    // TODO: использовать
-                    System.out.println(count);      // вывод в консоль
-                }
-            }
+            // query - выполняет запрос и возвращает нам какой-то результат, т.е. SELECT
+            // conn, countSQL, new ScalarHandler<>() - есть 3 типа результатов, которые мы можем получить
+            // ScalarHandler - единичное значение (количество, строка, )
+            // запрос на количество users
+            Long count = runner.query(conn, countSQL, new ScalarHandler<>());
+            System.out.println(count);
 
-            preparedStatement.setInt(1, 1);
-            try (var rs = preparedStatement.executeQuery()) {
-                // while - цикл, т.к. мы знаем, что будет несколько строк, не одна
-                // пока будет следующа строчка цикл будет проходить и обрабатывать поля
-                while (rs.next()) {
-                    // последовательно берем значения из полей: id, number, balance_in_kopecks таблицы cards
-                    var id = rs.getInt("id");
-                    var number = rs.getString("number");
-                    var balanceInKopecks = rs.getInt("balance_in_kopecks");
-                    // TODO: сложить все в список
-                    // полученные значения вывести в консоль
-                    System.out.println(id + " " + balanceInKopecks);
-                }
-            }
+            // BeanHandler - получаем объект пользователь
+            var first = runner.query(conn, usersSQL, new BeanHandler<>(User.class));
+            System.out.println(first);
+
+            // BeanListHandler - получаем список пользователей из БД
+            List<User> all = runner.query(conn, usersSQL, new BeanListHandler<>(User.class));
+            System.out.println(all);
         }
     }
 }
